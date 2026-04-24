@@ -113,32 +113,83 @@ class _SubHeader extends StatelessWidget {
 
 // ─── TAB 1: Resumen General ───────────────────────────────────────────────────
 
-class _ResumenGeneral extends StatelessWidget {
+class _ResumenGeneral extends StatefulWidget {
   const _ResumenGeneral();
 
   @override
+  State<_ResumenGeneral> createState() => _ResumenGeneralState();
+}
+
+class _ResumenGeneralState extends State<_ResumenGeneral> {
+  bool _esExtranjero = false;
+
+  @override
   Widget build(BuildContext context) {
+    final stats = _esExtranjero ? statsExtranjero : statsPeru;
+    final lista = _esExtranjero ? candidatosExtranjero : candidatosPeru;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // Toggle Perú / Extranjero
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6)],
+          ),
+          padding: const EdgeInsets.all(4),
+          child: Row(children: [
+            _toggleBtn('PERÚ', !_esExtranjero, () => setState(() => _esExtranjero = false)),
+            _toggleBtn('EXTRANJERO', _esExtranjero, () => setState(() => _esExtranjero = true)),
+          ]),
+        ),
+        const SizedBox(height: 12),
         // Estado actual
-        _CardEstado(),
+        _CardEstado(stats: stats),
         const SizedBox(height: 12),
         // Participación ciudadana
-        _CardParticipacion(),
+        _CardParticipacion(stats: stats),
         const SizedBox(height: 12),
         // Desglose candidaturas
-        _CardDesglose(),
+        _CardDesglose(candidatos: lista, stats: stats),
         const SizedBox(height: 12),
         // Progreso escrutinio
-        _CardProgreso(),
+        _CardProgreso(stats: stats),
         const SizedBox(height: 12),
       ],
+    );
+  }
+
+  Widget _toggleBtn(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? AppColors.navyDark : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: active ? Colors.white : Colors.grey,
+                letterSpacing: 0.5,
+              )),
+        ),
+      ),
     );
   }
 }
 
 class _CardEstado extends StatelessWidget {
+  final RegionalStats stats;
+  const _CardEstado({required this.stats});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -168,9 +219,10 @@ class _CardEstado extends StatelessWidget {
           const SizedBox(height: 6),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Actos contabilizados', style: TextStyle(fontSize: 11, color: Color(0xFF5A3A00))),
-              Text('100.000%', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF5A3A00))),
+            children: [
+              const Text('Actos contabilizados', style: TextStyle(fontSize: 11, color: Color(0xFF5A3A00))),
+              Text('${stats.contabilizadas} / ${stats.totalActas}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF5A3A00))),
             ],
           ),
           const SizedBox(height: 8),
@@ -184,7 +236,7 @@ class _CardEstado extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text('ULTIMA ACTUALIZACIÓN: OCT 24 2023 – 14:30:00',
+          const Text('ULTIMA ACTUALIZACIÓN: 20/06/2016 – 19:16:00',
               style: TextStyle(fontSize: 9, color: Color(0xFF7A5000), letterSpacing: 0.5)),
         ],
       ),
@@ -193,6 +245,9 @@ class _CardEstado extends StatelessWidget {
 }
 
 class _CardParticipacion extends StatelessWidget {
+  final RegionalStats stats;
+  const _CardParticipacion({required this.stats});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -206,19 +261,19 @@ class _CardParticipacion extends StatelessWidget {
               style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
           const SizedBox(height: 6),
           Row(
-            children: const [
-              Text('80.093%',
-                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
-              SizedBox(width: 8),
-              Icon(Icons.person, color: Colors.grey, size: 24),
+            children: [
+              Text(stats.porcentajeFinal,
+                  style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+              const SizedBox(width: 8),
+              const Icon(Icons.person, color: Colors.grey, size: 24),
             ],
           ),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _statItem('VOTANTES ELEGIBLES', '22,901,954'),
-              _statItem('CIUDADANOS QUE VOTARON', '18,342,896', align: TextAlign.right),
+              _statItem('VOTANTES ELEGIBLES', stats.electoresHabiles),
+              _statItem('CIUDADANOS QUE VOTARON', stats.participantes, align: TextAlign.right),
             ],
           ),
         ],
@@ -238,6 +293,10 @@ class _CardParticipacion extends StatelessWidget {
 }
 
 class _CardDesglose extends StatelessWidget {
+  final List<Candidato> candidatos;
+  final RegionalStats stats;
+  const _CardDesglose({required this.candidatos, required this.stats});
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -500,16 +559,18 @@ class _FullTableSheet extends StatelessWidget {
 }
 
 class _CardProgreso extends StatelessWidget {
-  final items = const [
-    ('Total Actas (77,307)', '100.000%', 1.0),
-    ('Actas Procesadas', '100.000%', 1.0),
-    ('Actas Contabilizadas', '100.000%', 1.0),
-    ('Para envío al JEE', '0.000%', 0.0),
-    ('Por procesar', '0.000%', 0.0),
-  ];
+  final RegionalStats stats;
+  const _CardProgreso({required this.stats});
 
   @override
   Widget build(BuildContext context) {
+    final items = [
+      ('Total Actas (${stats.totalActas})', '100.000%', 1.0),
+      ('Actas Procesadas', '100.000%', 1.0),
+      ('Actas Contabilizadas', '100.000%', 1.0),
+      ('Para envío al JEE', '0.000%', 0.0),
+      ('Por procesar', '0.000%', 0.0),
+    ];
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
