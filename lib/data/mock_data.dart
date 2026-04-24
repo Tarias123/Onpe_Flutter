@@ -4,6 +4,7 @@ class Candidato {
   final double porcentaje;
   final double porcentajeEmitidos;
   final int votos;
+  final String foto;
 
   const Candidato({
     required this.nombre,
@@ -11,6 +12,7 @@ class Candidato {
     required this.porcentaje,
     required this.porcentajeEmitidos,
     required this.votos,
+    required this.foto,
   });
 }
 
@@ -26,6 +28,7 @@ const candidatosPeru = [
     porcentaje: 50.120,
     porcentajeEmitidos: 46.868,
     votos: 8596937,
+    foto: 'assets/images/ppk.png',
   ),
   Candidato(
     nombre: 'Keiko Fujimori',
@@ -33,6 +36,7 @@ const candidatosPeru = [
     porcentaje: 49.880,
     porcentajeEmitidos: 46.644,
     votos: 8555880,
+    foto: 'assets/images/keiko.png',
   ),
 ];
 
@@ -100,6 +104,7 @@ const candidatosExtranjero = [
     porcentaje: 52.180,
     porcentajeEmitidos: 48.524,
     votos: 189016,
+    foto: 'assets/images/ppk.png',
   ),
   Candidato(
     nombre: 'Keiko Fujimori',
@@ -107,6 +112,7 @@ const candidatosExtranjero = [
     porcentaje: 47.820,
     porcentajeEmitidos: 44.451,
     votos: 173146,
+    foto: 'assets/images/keiko.png',
   ),
 ];
 

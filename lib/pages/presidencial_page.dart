@@ -262,8 +262,7 @@ class _CardDesglose extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    CircleAvatar(radius: 22, backgroundColor: Colors.grey[200],
-                        child: Text(c.nombre[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.navyDark))),
+                    CircleAvatar(radius: 22, backgroundImage: AssetImage(c.foto)),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -397,8 +396,7 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                CircleAvatar(radius: 26, backgroundColor: Colors.grey[200],
-                    child: Text(c.nombre[0], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.navyDark, fontSize: 18))),
+                CircleAvatar(radius: 26, backgroundImage: AssetImage(c.foto)),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(c.partido.toUpperCase(),
