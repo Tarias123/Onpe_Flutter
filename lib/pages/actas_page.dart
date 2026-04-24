@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../data/geographic_data.dart';
 
 class ActasPage extends StatefulWidget {
   const ActasPage({super.key});
@@ -89,33 +90,42 @@ class _UbigeoTab extends StatefulWidget {
 }
 
 class _UbigeoTabState extends State<_UbigeoTab> {
-  String? _ambito = 'Perú';
+  String _ambito = 'Perú';
   String? _departamento;
   String? _provincia;
   String? _distrito;
-  String? _local;
   bool _buscado = false;
 
-  final _departamentos = ['Lima', 'Arequipa', 'Cusco', 'La Libertad', 'Piura', 'Puno', 'Junín'];
-  final _provincias = ['Lima', 'Callao', 'Huaral', 'Cañete', 'Huarochirí'];
-  final _distritos = ['Miraflores', 'San Isidro', 'Barranco', 'Surco', 'La Molina'];
-  final _locales = ['Local A', 'Local B', 'Local C'];
+  List<String> get _departamentos =>
+      _ambito == 'Perú' ? peruGeo.keys.toList() : extranjeroGeo.keys.toList();
+
+  List<String> get _provincias {
+    if (_departamento == null) return [];
+    if (_ambito == 'Perú') return peruGeo[_departamento]?.keys.toList() ?? [];
+    return extranjeroGeo[_departamento]?.keys.toList() ?? [];
+  }
+
+  List<String> get _distritos {
+    if (_departamento == null || _provincia == null) return [];
+    if (_ambito == 'Perú') return peruGeo[_departamento]?[_provincia] ?? [];
+    return extranjeroGeo[_departamento]?[_provincia] ?? [];
+  }
+
+  String get _label1 => _ambito == 'Perú' ? 'DEPARTAMENTO' : 'CONTINENTE';
+  String get _label2 => _ambito == 'Perú' ? 'PROVINCIA' : 'PAÍS';
+  String get _label3 => _ambito == 'Perú' ? 'DISTRITO' : 'CIUDAD';
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Estado del sistema
         _EstadoCard(),
         const SizedBox(height: 16),
-        // Toggle
         _TabToggle(porUbigeo: true, onSwitch: widget.onSwitch),
         const SizedBox(height: 16),
-        // Formulario
         _formCard(),
         const SizedBox(height: 12),
-        // Botón buscar
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
@@ -135,13 +145,12 @@ class _UbigeoTabState extends State<_UbigeoTab> {
         const SizedBox(height: 16),
         if (_buscado) ...[
           _ResultadosUbigeoCard(
-            departamento: _departamento ?? _ambito ?? 'Lima',
+            departamento: _departamento ?? _ambito,
             provincia: _provincia,
             distrito: _distrito,
           ),
           const SizedBox(height: 16),
         ],
-        // Info
         _InfoCard('Información de Consulta',
             'Seleccione los filtros para visualizar el detalle de las actas procesadas por la Oficina Nacional de Procesos Electorales.'),
         const SizedBox(height: 12),
@@ -158,46 +167,46 @@ class _UbigeoTabState extends State<_UbigeoTab> {
       ),
       padding: const EdgeInsets.all(16),
       child: Column(children: [
-        _dropdown('ÁMBITO', _ambito, ['Perú', 'Extranjero'], (v) => setState(() => _ambito = v)),
+        _dropdown('ÁMBITO', _ambito, ['Perú', 'Extranjero'],
+            (v) => setState(() { _ambito = v!; _departamento = null; _provincia = null; _distrito = null; _buscado = false; })),
         const SizedBox(height: 14),
-        _dropdown('DEPARTAMENTO', _departamento, _departamentos,
-            (v) => setState(() { _departamento = v; _provincia = null; _distrito = null; _local = null; }),
-            hint: 'Seleccionar Departamento'),
+        _dropdown(_label1, _departamento, _departamentos,
+            (v) => setState(() { _departamento = v; _provincia = null; _distrito = null; _buscado = false; }),
+            hint: 'Seleccionar $_label1'),
         const SizedBox(height: 14),
-        _dropdown('PROVINCIA', _provincia, _provincias,
-            (v) => setState(() { _provincia = v; _distrito = null; _local = null; }),
-            hint: 'Seleccionar Provincia'),
+        _dropdown(_label2, _provincia, _provincias,
+            _departamento == null ? null : (v) => setState(() { _provincia = v; _distrito = null; _buscado = false; }),
+            hint: 'Seleccionar $_label2'),
         const SizedBox(height: 14),
-        _dropdown('DISTRITO', _distrito, _distritos,
-            (v) => setState(() { _distrito = v; _local = null; }),
-            hint: 'Seleccionar Distrito'),
-        const SizedBox(height: 14),
-        _dropdown('LOCAL DE VOTACIÓN', _local, _locales,
-            (v) => setState(() => _local = v),
-            hint: 'Seleccionar Local'),
+        _dropdown(_label3, _distrito, _distritos,
+            _provincia == null ? null : (v) => setState(() { _distrito = v; _buscado = false; }),
+            hint: 'Seleccionar $_label3'),
       ]),
     );
   }
 
-  Widget _dropdown(String label, String? value, List<String> items, ValueChanged<String?> onChanged, {String? hint}) {
+  Widget _dropdown(String label, String? value, List<String> items, ValueChanged<String?>? onChanged, {String? hint}) {
+    final disabled = onChanged == null || items.isEmpty;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1)),
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+              color: disabled ? Colors.grey[400] : Colors.grey, letterSpacing: 1)),
       const SizedBox(height: 6),
       Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: disabled ? Colors.grey[200]! : Colors.grey[300]!),
           borderRadius: BorderRadius.circular(8),
+          color: disabled ? Colors.grey[50] : Colors.white,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
             value: value,
-            hint: Text(hint ?? value ?? '', style: const TextStyle(fontSize: 13, color: Colors.black87)),
-            icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.navyDark),
+            hint: Text(hint ?? '', style: TextStyle(fontSize: 13, color: disabled ? Colors.grey[400] : Colors.black54)),
+            icon: Icon(Icons.keyboard_arrow_down, color: disabled ? Colors.grey[400] : AppColors.navyDark),
             items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: const TextStyle(fontSize: 13)))).toList(),
-            onChanged: onChanged,
+            onChanged: disabled ? null : onChanged,
           ),
         ),
       ),
