@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../data/mock_data.dart';
 import '../data/geographic_data.dart';
+import '../data/firestore_service.dart';
 
 class PresidencialPage extends StatefulWidget {
   const PresidencialPage({super.key});
@@ -623,48 +624,38 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
 
   @override
   Widget build(BuildContext context) {
-    final lista = _peru ? candidatosPeru : candidatosExtranjero;
     final stats = _peru ? statsPeru : statsExtranjero;
+    final ambito = _peru ? 'peru' : 'extranjero';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('ACTUALIZADO EL 20/08/2016 A LAS 19:16 H',
+        const Text('ACTUALIZADO EL 20/06/2016 A LAS 19:16 H',
             style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
         const SizedBox(height: 12),
         _Toggle(value: _peru, onChanged: (v) => setState(() => _peru = v)),
         const SizedBox(height: 12),
-        // Candidatos
-        ...lista.asMap().entries.map((e) {
-          final c = e.value;
-          final isWinner = e.key == 0;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border(left: BorderSide(color: isWinner ? AppColors.gold : Colors.grey[200]!, width: 4)),
-              boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                CircleAvatar(radius: 26, backgroundImage: AssetImage(c.foto)),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(c.partido.toUpperCase(),
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.gold, letterSpacing: 0.5)),
-                  Text(c.nombre,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
-                  Text('${_fmt(c.votos)} votos',
-                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ])),
-                Text('${c.porcentaje.toStringAsFixed(3)}%',
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
-              ],
-            ),
-          );
-        }),
+        // Candidatos desde Firestore
+        StreamBuilder<List<Candidato>>(
+          stream: FirestoreService.candidatos(ambito),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.gold));
+            }
+            if (snapshot.hasError) {
+              return Container(
+                padding: const EdgeInsets.all(12),
+                color: Colors.red[100],
+                child: Text('Error: ${snapshot.error}', style: const TextStyle(fontSize: 11, color: Colors.red)),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              final lista = _peru ? candidatosPeru : candidatosExtranjero;
+              return Column(children: _buildCandidatos(lista));
+            }
+            return Column(children: _buildCandidatos(snapshot.data!));
+          },
+        ),
         // Avance escrutinio
         Container(
           padding: const EdgeInsets.all(16),
@@ -744,6 +735,39 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
         ]),
       ),
     );
+  }
+
+  List<Widget> _buildCandidatos(List<Candidato> lista) {
+    return lista.asMap().entries.map((e) {
+      final c = e.value;
+      final isWinner = e.key == 0;
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border(left: BorderSide(color: isWinner ? AppColors.gold : Colors.grey[200]!, width: 4)),
+          boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+        ),
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            CircleAvatar(radius: 26, backgroundImage: AssetImage(c.foto)),
+            const SizedBox(width: 12),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(c.partido.toUpperCase(),
+                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.gold, letterSpacing: 0.5)),
+              Text(c.nombre,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+              Text('${_fmt(c.votos)} votos',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            ])),
+            Text('${c.porcentaje.toStringAsFixed(3)}%',
+                style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+          ],
+        ),
+      );
+    }).toList();
   }
 
   String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
