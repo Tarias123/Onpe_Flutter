@@ -299,18 +299,16 @@ class _NumeroTabState extends State<_NumeroTab> {
           ]),
         ),
         const SizedBox(height: 16),
-        // Imagen edificio ONPE (placeholder — reemplazar con imagen real)
+        // Imagen edificio ONPE
         ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: Stack(
             children: [
-              Container(
+              Image.asset(
+                'assets/images/onpe_edificio.jpg',
                 height: 160,
                 width: double.infinity,
-                color: Colors.grey[300],
-                child: const Center(
-                  child: Icon(Icons.account_balance, size: 64, color: Colors.grey),
-                ),
+                fit: BoxFit.cover,
               ),
               Positioned(
                 bottom: 0, left: 0, right: 0,

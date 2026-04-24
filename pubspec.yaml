@@ -61,6 +61,7 @@ flutter:
     - assets/images/ppk.png
     - assets/images/keiko.png
     - assets/images/onpe_logo.webp
+    - assets/images/onpe_edificio.jpg
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
