@@ -94,6 +94,7 @@ class _UbigeoTabState extends State<_UbigeoTab> {
   String? _provincia;
   String? _distrito;
   String? _local;
+  bool _buscado = false;
 
   final _departamentos = ['Lima', 'Arequipa', 'Cusco', 'La Libertad', 'Piura', 'Puno', 'Junín'];
   final _provincias = ['Lima', 'Callao', 'Huaral', 'Cañete', 'Huarochirí'];
@@ -118,7 +119,7 @@ class _UbigeoTabState extends State<_UbigeoTab> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () => setState(() => _buscado = true),
             icon: const Icon(Icons.search, size: 18),
             label: const Text('BUSCAR ACTAS',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 1)),
@@ -132,6 +133,14 @@ class _UbigeoTabState extends State<_UbigeoTab> {
           ),
         ),
         const SizedBox(height: 16),
+        if (_buscado) ...[
+          _ResultadosUbigeoCard(
+            departamento: _departamento ?? _ambito ?? 'Lima',
+            provincia: _provincia,
+            distrito: _distrito,
+          ),
+          const SizedBox(height: 16),
+        ],
         // Info
         _InfoCard('Información de Consulta',
             'Seleccione los filtros para visualizar el detalle de las actas procesadas por la Oficina Nacional de Procesos Electorales.'),
@@ -208,11 +217,22 @@ class _NumeroTab extends StatefulWidget {
 
 class _NumeroTabState extends State<_NumeroTab> {
   final _controller = TextEditingController();
+  bool _buscado = false;
+  String _error = '';
 
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  void _buscar() {
+    final numero = _controller.text.trim();
+    if (numero.length < 6) {
+      setState(() { _error = 'Ingrese los 6 dígitos del número de acta.'; _buscado = false; });
+      return;
+    }
+    setState(() { _error = ''; _buscado = true; });
   }
 
   @override
@@ -258,6 +278,10 @@ class _NumeroTabState extends State<_NumeroTab> {
                 contentPadding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
+            if (_error.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(_error, style: const TextStyle(fontSize: 12, color: Colors.red)),
+            ],
           ]),
         ),
         const SizedBox(height: 12),
@@ -265,7 +289,7 @@ class _NumeroTabState extends State<_NumeroTab> {
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: _buscar,
             icon: const Icon(Icons.search, size: 18),
             label: const Text('Buscar Acta',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
@@ -278,6 +302,10 @@ class _NumeroTabState extends State<_NumeroTab> {
             ),
           ),
         ),
+        if (_buscado) ...[
+          const SizedBox(height: 16),
+          _ResultadoActaCard(numero: _controller.text.trim()),
+        ],
         const SizedBox(height: 12),
         // Nota dígitos
         Container(
@@ -343,6 +371,155 @@ class _NumeroTabState extends State<_NumeroTab> {
         const SizedBox(height: 16),
       ],
     );
+  }
+}
+
+// ─── Resultado Por Ubigeo ─────────────────────────────────────────────────────
+
+class _ResultadosUbigeoCard extends StatelessWidget {
+  final String departamento;
+  final String? provincia;
+  final String? distrito;
+  const _ResultadosUbigeoCard({required this.departamento, this.provincia, this.distrito});
+
+  @override
+  Widget build(BuildContext context) {
+    final actas = [
+      {'numero': '014521', 'mesa': '0145-A', 'estado': 'Contabilizada', 'local': 'I.E. San Martín'},
+      {'numero': '014522', 'mesa': '0145-B', 'estado': 'Contabilizada', 'local': 'I.E. San Martín'},
+      {'numero': '014523', 'mesa': '0146-A', 'estado': 'Observada',     'local': 'I.E. Gran Unidad'},
+      {'numero': '014524', 'mesa': '0146-B', 'estado': 'Contabilizada', 'local': 'I.E. Gran Unidad'},
+      {'numero': '014525', 'mesa': '0147-A', 'estado': 'Contabilizada', 'local': 'C.E. Los Andes'},
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.list_alt, color: AppColors.navyDark, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Actas en ${distrito ?? provincia ?? departamento}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.navyDark),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(20)),
+            child: Text('${actas.length} actas',
+                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const Divider(height: 20),
+        ...actas.map((a) => _actaRow(a)),
+      ]),
+    );
+  }
+
+  Widget _actaRow(Map<String, String> acta) {
+    final esObservada = acta['estado'] == 'Observada';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(children: [
+        Icon(
+          esObservada ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+          color: esObservada ? Colors.orange : Colors.green,
+          size: 18,
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Acta N° ${acta['numero']}  •  Mesa ${acta['mesa']}',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+          Text(acta['local']!, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        ])),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: esObservada ? const Color(0xFFFFF3E0) : const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(acta['estado']!,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: esObservada ? Colors.orange : Colors.green,
+              )),
+        ),
+      ]),
+    );
+  }
+}
+
+// ─── Resultado Acta por Número ────────────────────────────────────────────────
+
+class _ResultadoActaCard extends StatelessWidget {
+  final String numero;
+  const _ResultadoActaCard({required this.numero});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold, width: 1.5),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+          const SizedBox(width: 8),
+          const Text('ACTA ENCONTRADA',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.green, letterSpacing: 1)),
+        ]),
+        const Divider(height: 20),
+        _fila('Número de Acta', numero),
+        _fila('Mesa de Sufragio', '${numero.substring(0, 4)}-A'),
+        _fila('Local de Votación', 'I.E. Gran Unidad Escolar'),
+        _fila('Distrito', 'Lima'),
+        _fila('Provincia', 'Lima'),
+        _fila('Departamento', 'Lima'),
+        _fila('Estado', 'Contabilizada'),
+        const Divider(height: 20),
+        const Text('VOTOS REGISTRADOS',
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1)),
+        const SizedBox(height: 10),
+        _votoFila('Pedro Pablo Kuczynski', 'Peruanos por el Kambio', '152'),
+        const SizedBox(height: 8),
+        _votoFila('Keiko Fujimori', 'Fuerza Popular', '143'),
+        const SizedBox(height: 8),
+        _fila('Votos Blancos', '3'),
+        _fila('Votos Nulos', '2'),
+        _fila('Total Emitidos', '300'),
+      ]),
+    );
+  }
+
+  Widget _fila(String label, String valor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(valor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+      ]),
+    );
+  }
+
+  Widget _votoFila(String nombre, String partido, String votos) {
+    return Row(children: [
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(partido, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.gold, letterSpacing: 0.5)),
+        Text(nombre, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+      ])),
+      Text('$votos votos', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.navyDark)),
+    ]);
   }
 }
 
