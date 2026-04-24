@@ -127,7 +127,7 @@ class _ResumenGeneralState extends State<_ResumenGeneral> {
   @override
   Widget build(BuildContext context) {
     final stats = _esExtranjero ? statsExtranjero : statsPeru;
-    final lista = _esExtranjero ? candidatosExtranjero : candidatosPeru;
+    final ambito = _esExtranjero ? 'extranjero' : 'peru';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -146,16 +146,21 @@ class _ResumenGeneralState extends State<_ResumenGeneral> {
           ]),
         ),
         const SizedBox(height: 12),
-        // Estado actual
         _CardEstado(stats: stats),
         const SizedBox(height: 12),
-        // Participación ciudadana
         _CardParticipacion(stats: stats),
         const SizedBox(height: 12),
-        // Desglose candidaturas
-        _CardDesglose(candidatos: lista, stats: stats),
+        // Desglose candidaturas desde Firestore
+        StreamBuilder<List<Candidato>>(
+          stream: FirestoreService.candidatos(ambito),
+          builder: (context, snapshot) {
+            final lista = snapshot.hasData && snapshot.data!.isNotEmpty
+                ? snapshot.data!
+                : (_esExtranjero ? candidatosExtranjero : candidatosPeru);
+            return _CardDesglose(candidatos: lista, stats: stats);
+          },
+        ),
         const SizedBox(height: 12),
-        // Progreso escrutinio
         _CardProgreso(stats: stats),
         const SizedBox(height: 12),
       ],
@@ -377,9 +382,14 @@ class _CardDesglose extends StatelessWidget {
 
 // ─── Full Table Sheet ─────────────────────────────────────────────────────────
 
-class _FullTableSheet extends StatelessWidget {
+class _FullTableSheet extends StatefulWidget {
   const _FullTableSheet();
 
+  @override
+  State<_FullTableSheet> createState() => _FullTableSheetState();
+}
+
+class _FullTableSheetState extends State<_FullTableSheet> {
   String _fmt(int n) =>
       n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 
@@ -427,17 +437,27 @@ class _FullTableSheet extends StatelessWidget {
                 controller: controller,
                 padding: const EdgeInsets.all(20),
                 children: [
-                  // Tabla candidatos
+                  // Tabla candidatos desde Firestore
                   _seccionTitulo('RESULTADOS POR CANDIDATO'),
                   const SizedBox(height: 10),
                   _tablaHeader(['Candidato', '% Válidos', '% Emitidos', 'Votos']),
-                  ...candidatos.map((c) => _tablaFila(
-                    candidato: c,
-                    porcentaje: '${c.porcentaje.toStringAsFixed(3)}%',
-                    pctEmitidos: '${c.porcentajeEmitidos.toStringAsFixed(3)}%',
-                    votos: _fmt(c.votos),
-                    ganador: c.porcentaje > 50,
-                  )),
+                  StreamBuilder<List<Candidato>>(
+                    stream: FirestoreService.candidatos('peru'),
+                    builder: (context, snapshot) {
+                      final lista = snapshot.hasData && snapshot.data!.isNotEmpty
+                          ? snapshot.data!
+                          : candidatosPeru;
+                      return Column(
+                        children: lista.map((c) => _tablaFila(
+                          candidato: c,
+                          porcentaje: '${c.porcentaje.toStringAsFixed(3)}%',
+                          pctEmitidos: '${c.porcentajeEmitidos.toStringAsFixed(3)}%',
+                          votos: _fmt(c.votos),
+                          ganador: c.porcentaje > 50,
+                        )).toList(),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 24),
                   // Tabla resumen votos
                   _seccionTitulo('RESUMEN DE VOTOS'),
