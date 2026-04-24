@@ -720,6 +720,9 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
           ],
         ),
         const SizedBox(height: 12),
+        // Resultados por departamento / continente
+        _ResultadosPorZona(peru: _peru),
+        const SizedBox(height: 12),
         // Glosario
         _GlosarioCard(open: _glosario, onTap: () => setState(() => _glosario = !_glosario)),
         const SizedBox(height: 12),
@@ -744,6 +747,134 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
   }
 
   String _fmt(int n) => n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+}
+
+// ─── Resultados por Departamento / Continente ────────────────────────────────
+
+class _ResultadosPorZona extends StatelessWidget {
+  final bool peru;
+  const _ResultadosPorZona({required this.peru});
+
+  static const _ppkTotal = 8596937;
+  static const _keikoTotal = 8555880;
+
+  String _fmt(int n) => n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    final zonas = peru ? _peruZonas() : _extranjeroZonas();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(
+            peru ? 'Resultados por Departamento' : 'Resultados por Continente',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.navyDark),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(20)),
+            child: Text('${zonas.length}', style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        // Leyenda
+        Row(children: [
+          _leyenda(AppColors.navyDark, 'PPK'),
+          const SizedBox(width: 16),
+          _leyenda(AppColors.gold, 'Keiko'),
+        ]),
+        const Divider(height: 20),
+        ...zonas.map((z) => _zonaRow(z)),
+      ]),
+    );
+  }
+
+  Widget _leyenda(Color color, String label) {
+    return Row(children: [
+      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+    ]);
+  }
+
+  Widget _zonaRow(_ZonaData z) {
+    final ppkPct = z.ppkVotos / (z.ppkVotos + z.keikoVotos);
+    final ppkGana = ppkPct > 0.5;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Expanded(
+            child: Text(z.nombre,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: ppkGana ? AppColors.navyDark.withAlpha(20) : AppColors.gold.withAlpha(30),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              ppkGana ? 'PPK ${(ppkPct * 100).toStringAsFixed(1)}%' : 'Keiko ${((1 - ppkPct) * 100).toStringAsFixed(1)}%',
+              style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w800,
+                  color: ppkGana ? AppColors.navyDark : AppColors.gold),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Stack(children: [
+            Container(height: 8, color: AppColors.gold),
+            FractionallySizedBox(
+              widthFactor: ppkPct,
+              child: Container(height: 8, color: AppColors.navyDark),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 4),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(_fmt(z.ppkVotos), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+          Text(_fmt(z.keikoVotos), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        ]),
+      ]),
+    );
+  }
+
+  List<_ZonaData> _peruZonas() {
+    return pesoDepartamento.entries.map((e) {
+      final ppk = (_ppkTotal * e.value).round();
+      final keiko = (_keikoTotal * e.value).round();
+      return _ZonaData(e.key, ppk, keiko);
+    }).toList()
+      ..sort((a, b) => (b.ppkVotos + b.keikoVotos).compareTo(a.ppkVotos + a.keikoVotos));
+  }
+
+  List<_ZonaData> _extranjeroZonas() {
+    return electoresContinente.entries.map((e) {
+      final total = e.value;
+      final ppk = (total * 0.48524).round();
+      final keiko = (total * 0.44451).round();
+      return _ZonaData(e.key, ppk, keiko);
+    }).toList()
+      ..sort((a, b) => (b.ppkVotos + b.keikoVotos).compareTo(a.ppkVotos + a.keikoVotos));
+  }
+}
+
+class _ZonaData {
+  final String nombre;
+  final int ppkVotos;
+  final int keikoVotos;
+  const _ZonaData(this.nombre, this.ppkVotos, this.keikoVotos);
 }
 
 // ─── TAB 3: Resultado Por Tipo (con filtros en cascada) ──────────────────────
