@@ -12,27 +12,26 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: AppColors.navyDark,
       elevation: 0,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _bar(), const SizedBox(height: 5), _bar(), const SizedBox(height: 5), _bar(),
-          ],
-        ),
-      ),
-      title: const Text(
-        'PRESENTACION DE RESULTADOS',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.2,
-        ),
+      automaticallyImplyLeading: false,
+      title: Row(
+        children: [
+          Image.asset(
+            'assets/images/onpe_logo.webp',
+            height: 36,
+            fit: BoxFit.contain,
+          ),
+          const SizedBox(width: 12),
+          const Text(
+            'PRESENTACION DE RESULTADOS',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }
-
-  Widget _bar() => Container(width: 20, height: 2, color: Colors.white);
 }
