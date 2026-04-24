@@ -295,8 +295,16 @@ class _CardDesglose extends StatelessWidget {
             );
           }),
           const Divider(height: 20),
-          const Text('VIEW FULL TABLE ›',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.navyDark, letterSpacing: 1)),
+          GestureDetector(
+            onTap: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const _FullTableSheet(),
+            ),
+            child: const Text('VIEW FULL TABLE ›',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.navyDark, letterSpacing: 1)),
+          ),
         ],
       ),
     );
@@ -304,6 +312,190 @@ class _CardDesglose extends StatelessWidget {
 
   String _fmt(int n) {
     return n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+  }
+}
+
+// ─── Full Table Sheet ─────────────────────────────────────────────────────────
+
+class _FullTableSheet extends StatelessWidget {
+  const _FullTableSheet();
+
+  String _fmt(int n) =>
+      n.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            // Título
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Tabla de Resultados',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text('Segunda Elección Presidencial 2016 – Resultados Oficiales ONPE',
+                  style: TextStyle(fontSize: 11, color: Colors.grey)),
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.all(20),
+                children: [
+                  // Tabla candidatos
+                  _seccionTitulo('RESULTADOS POR CANDIDATO'),
+                  const SizedBox(height: 10),
+                  _tablaHeader(['Candidato', '% Válidos', '% Emitidos', 'Votos']),
+                  ...candidatos.map((c) => _tablaFila(
+                    candidato: c,
+                    porcentaje: '${c.porcentaje.toStringAsFixed(3)}%',
+                    pctEmitidos: '${c.porcentajeEmitidos.toStringAsFixed(3)}%',
+                    votos: _fmt(c.votos),
+                    ganador: c.porcentaje > 50,
+                  )),
+                  const SizedBox(height: 24),
+                  // Tabla resumen votos
+                  _seccionTitulo('RESUMEN DE VOTOS'),
+                  const SizedBox(height: 10),
+                  _resumenCard([
+                    ('Total Electores Hábiles', statsPeru.electoresHabiles, null),
+                    ('Ciudadanos que Votaron', statsPeru.participantes, statsPeru.porcentajeFinal),
+                    ('Ausentismo', '4,559,058', statsPeru.ausentismo),
+                  ]),
+                  const SizedBox(height: 16),
+                  _seccionTitulo('TIPO DE VOTO'),
+                  const SizedBox(height: 10),
+                  _resumenCard([
+                    ('Votos Válidos', statsPeru.votosValidos, '${statsPeru.pctValidos}%'),
+                    ('Votos Blancos', statsPeru.votosBlancos, '${statsPeru.pctBlancos}%'),
+                    ('Votos Nulos', statsPeru.votosNulos, '${statsPeru.pctNulos}%'),
+                    ('Total Emitidos', statsPeru.totalEmitidos, '100.000%'),
+                  ]),
+                  const SizedBox(height: 24),
+                  // Tabla actas
+                  _seccionTitulo('ESTADO DE ACTAS'),
+                  const SizedBox(height: 10),
+                  _resumenCard([
+                    ('Total Actas', statsPeru.totalActas, '100.000%'),
+                    ('Actas Procesadas', statsPeru.procesadas, '100.000%'),
+                    ('Actas Contabilizadas', statsPeru.contabilizadas, '100.000%'),
+                    ('Para envío al JEE', '0', '0.000%'),
+                    ('Por procesar', '0', '0.000%'),
+                  ]),
+                  const SizedBox(height: 16),
+                  const Text('Fuente: ONPE – web.onpe.gob.pe | Actualizado: 20/06/2016 a las 19:16 h',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 10, color: Colors.grey)),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _seccionTitulo(String titulo) {
+    return Text(titulo,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1));
+  }
+
+  Widget _tablaHeader(List<String> cols) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(8)),
+      child: Row(children: [
+        Expanded(flex: 3, child: Text(cols[0], style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white))),
+        Expanded(child: Text(cols[1], textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white))),
+        Expanded(child: Text(cols[2], textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white))),
+        Expanded(child: Text(cols[3], textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.white))),
+      ]),
+    );
+  }
+
+  Widget _tablaFila({required Candidato candidato, required String porcentaje, required String pctEmitidos, required String votos, bool ganador = false}) {
+    return Container(
+      margin: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ganador ? const Color(0xFFFFF8E1) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: ganador ? Border.all(color: AppColors.goldLight) : null,
+      ),
+      child: Row(children: [
+        Expanded(flex: 3, child: Row(children: [
+          CircleAvatar(radius: 14, backgroundImage: AssetImage(candidato.foto)),
+          const SizedBox(width: 8),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(candidato.nombre, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+            if (ganador) const Text('GANADOR', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.gold, letterSpacing: 0.5)),
+          ])),
+        ])),
+        Expanded(child: Text(porcentaje, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.navyDark))),
+        Expanded(child: Text(pctEmitidos, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Colors.grey))),
+        Expanded(child: Text(votos, textAlign: TextAlign.right, style: const TextStyle(fontSize: 10, color: Colors.grey))),
+      ]),
+    );
+  }
+
+  Widget _resumenCard(List<(String, String, String?)> filas) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        children: filas.asMap().entries.map((e) {
+          final fila = e.value;
+          final isLast = e.key == filas.length - 1;
+          return Column(children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Expanded(child: Text(fila.$1, style: const TextStyle(fontSize: 12, color: Colors.grey))),
+                Text(fila.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+                if (fila.$3 != null) ...[
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 64,
+                    child: Text(fila.$3!, textAlign: TextAlign.right,
+                        style: const TextStyle(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.w600)),
+                  ),
+                ],
+              ]),
+            ),
+            if (!isLast) Divider(height: 1, color: Colors.grey[200]),
+          ]);
+        }).toList(),
+      ),
+    );
   }
 }
 
