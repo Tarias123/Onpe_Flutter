@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../data/geographic_data.dart';
+import '../data/mock_data.dart';
+import '../data/firestore_service.dart';
 
 class ActasPage extends StatefulWidget {
   const ActasPage({super.key});
@@ -540,24 +542,78 @@ class _EstadoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(children: [
-        const Icon(Icons.access_time, color: AppColors.gold, size: 20),
-        const SizedBox(width: 10),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1)),
-          const Text('ACTUALIZADO EL 20/06/2016 A LAS 19:16 h',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
-        ]),
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats('peru'),
+      builder: (context, snap) {
+        final s = snap.data ?? statsPeru;
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Header
+            Row(children: [
+              const Icon(Icons.fact_check_outlined, color: AppColors.gold, size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label,
+                    style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1)),
+                const Text('ACTUALIZADO EL 20/06/2016 A LAS 19:16 h',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.navyDark)),
+              ])),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(20)),
+                child: Row(children: const [
+                  Icon(Icons.circle, color: Colors.green, size: 8),
+                  SizedBox(width: 4),
+                  Text('EN LÍNEA', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.green, letterSpacing: 0.5)),
+                ]),
+              ),
+            ]),
+            const Divider(height: 18),
+            // Conteos de actas desde Firestore
+            Row(children: [
+              _actaStat('TOTAL ACTAS',         s.totalActas,     AppColors.navyDark),
+              _divider(),
+              _actaStat('PROCESADAS',          s.procesadas,     Colors.green),
+              _divider(),
+              _actaStat('CONTABILIZADAS',      s.contabilizadas, Colors.green),
+            ]),
+            const SizedBox(height: 10),
+            // Barra de progreso 100%
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: 1.0,
+                minHeight: 5,
+                backgroundColor: Colors.grey[100],
+                valueColor: const AlwaysStoppedAnimation(Colors.green),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text('100.000% de actas procesadas',
+                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+          ]),
+        );
+      },
+    );
+  }
+
+  Widget _actaStat(String label, String value, Color color) {
+    return Expanded(
+      child: Column(children: [
+        Text(label, style: const TextStyle(fontSize: 8, color: Colors.grey, letterSpacing: 0.5), textAlign: TextAlign.center),
+        const SizedBox(height: 4),
+        Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: color), textAlign: TextAlign.center),
       ]),
     );
   }
+
+  Widget _divider() => Container(width: 1, height: 30, color: Colors.grey[200]);
 }
 
 class _InfoCard extends StatelessWidget {

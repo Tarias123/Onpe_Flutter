@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../data/mock_data.dart';
+import '../data/firestore_service.dart';
 
 class ParticipacionPage extends StatefulWidget {
   const ParticipacionPage({super.key});
@@ -54,89 +56,108 @@ class _VistaGeneral extends StatelessWidget {
   final ValueChanged<String> onSelect;
   const _VistaGeneral({required this.onSelect});
 
+  int _parseNum(String s) => int.tryParse(s.replaceAll(',', '')) ?? 0;
+  double _parsePct(String s) => double.tryParse(s.replaceAll('%', '')) ?? 0.0;
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Electores hábiles
-        Container(
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats('peru'),
+      builder: (context, snap) {
+        final s = snap.data ?? statsPeru;
+        final pct       = _parsePct(s.porcentajeFinal);
+        final electores = _parseNum(s.electoresHabiles);
+        final particip  = _parseNum(s.participantes);
+        final ausentes  = electores - particip;
+        final pctAus    = _parsePct(s.ausentismo);
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-              Text('ELECTORES HÁBILES',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1)),
-              SizedBox(height: 4),
-              Text('22,901,954',
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
-            ]),
-            const Icon(Icons.person_outline, size: 40, color: Colors.grey),
-          ]),
-        ),
-        const SizedBox(height: 16),
-        // Gráfico donut
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
-          ),
-          child: Column(children: [
-            _DonutChart(porcentaje: 80.093),
-            const SizedBox(height: 20),
-            const Divider(),
-            const SizedBox(height: 12),
-            _statRow(Icons.circle, Colors.green, 'Participación', '18,342,896', '80.093%'),
-            const SizedBox(height: 10),
-            _statRow(Icons.remove_circle_outline, Colors.grey, 'Ausentismo', '4,559,058', '19.907%'),
-          ]),
-        ),
-        const SizedBox(height: 20),
-        // Accesos por región
-        const Text('ACCESOS POR REGIÓN',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.5)),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(child: _AccesoBtn(
-            label: 'Voto Extranjero',
-            icon: Icons.public,
-            active: false,
-            onTap: () => onSelect('extranjero'),
-          )),
-          const SizedBox(width: 12),
-          Expanded(child: _AccesoBtn(
-            label: 'Voto Nacional',
-            icon: Icons.account_balance,
-            active: false,
-            onTap: () => onSelect('nacional'),
-          )),
-        ]),
-        const SizedBox(height: 16),
-        // Nota
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            Icon(Icons.info_outline, size: 16, color: Colors.grey),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Los datos presentados corresponden a las actas procesadas por el sistema oficial. Las cifras se actualizan en tiempo real conforme avanza el escrutinio.',
-                style: TextStyle(fontSize: 11, color: Colors.grey),
+          children: [
+            // Electores hábiles
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
               ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('ELECTORES HÁBILES',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 4),
+                  Text(s.electoresHabiles,
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+                ]),
+                const Icon(Icons.person_outline, size: 40, color: Colors.grey),
+              ]),
             ),
-          ]),
-        ),
-        const SizedBox(height: 12),
-      ],
+            const SizedBox(height: 16),
+            // Gráfico donut
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+              ),
+              child: Column(children: [
+                _DonutChart(porcentaje: pct),
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 12),
+                _statRow(Icons.circle, Colors.green, 'Participación', s.participantes, s.porcentajeFinal),
+                const SizedBox(height: 10),
+                _statRow(Icons.remove_circle_outline, Colors.grey, 'Ausentismo',
+                    _fmt(ausentes), '${pctAus.toStringAsFixed(3)}%'),
+              ]),
+            ),
+            const SizedBox(height: 20),
+            // Accesos por región
+            const Text('ACCESOS POR REGIÓN',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.5)),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: _AccesoBtn(
+                label: 'Voto Extranjero',
+                icon: Icons.public,
+                active: false,
+                onTap: () => onSelect('extranjero'),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _AccesoBtn(
+                label: 'Voto Nacional',
+                icon: Icons.account_balance,
+                active: false,
+                onTap: () => onSelect('nacional'),
+              )),
+            ]),
+            const SizedBox(height: 16),
+            // Nota
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                Icon(Icons.info_outline, size: 16, color: Colors.grey),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Los datos presentados corresponden a las actas procesadas por el sistema oficial. Las cifras se actualizan en tiempo real conforme avanza el escrutinio.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
     );
   }
+
+  String _fmt(int n) => n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 
   Widget _statRow(IconData icon, Color color, String label, String value, String pct) {
     return Row(children: [
@@ -159,126 +180,142 @@ class _VistaDetalle extends StatelessWidget {
 
   bool get esExtranjero => selected == 'extranjero';
 
+  int _parseNum(String s) => int.tryParse(s.replaceAll(',', '')) ?? 0;
+  double _parsePct(String s) => double.tryParse(s.replaceAll('%', '')) ?? 0.0;
+  String _fmt(int n) => n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
+
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Botones de selección
-        Row(children: [
-          Expanded(child: _AccesoBtn(
-            label: 'Voto Extranjero',
-            icon: Icons.public,
-            active: esExtranjero,
-            onTap: () => onSelect('extranjero'),
-          )),
-          const SizedBox(width: 12),
-          Expanded(child: _AccesoBtn(
-            label: 'Voto Nacional',
-            icon: Icons.account_balance,
-            active: !esExtranjero,
-            onTap: () => onSelect('nacional'),
-          )),
-        ]),
-        const SizedBox(height: 16),
+    final ambito   = esExtranjero ? 'extranjero' : 'peru';
+    final mockStat = esExtranjero ? statsExtranjero : statsPeru;
 
-        // Última actualización
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFDE7),
-            border: Border.all(color: AppColors.goldLight),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(children: [
-            const Icon(Icons.table_chart_outlined, color: AppColors.gold, size: 20),
-            const SizedBox(width: 10),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-              Text('ULTIMA ACTUALIZACIÓN',
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1)),
-              Text('Actas Contabilizadas',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.navyDark)),
-              Text('08 de Mayo de 2024 - 18:45 hrs',
-                  style: TextStyle(fontSize: 11, color: Colors.grey)),
-            ])),
-          ]),
-        ),
-        const SizedBox(height: 10),
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats(ambito),
+      builder: (context, snap) {
+        final s        = snap.data ?? mockStat;
+        final pct      = _parsePct(s.porcentajeFinal);
+        final electores = _parseNum(s.electoresHabiles);
+        final particip  = _parseNum(s.participantes);
+        final ausentes  = electores - particip;
+        final pctAus   = _parsePct(s.ausentismo);
 
-        // Porcentaje actas
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
-          ),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            const Text('100.000%',
-                style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
-            Text(
-              esExtranjero ? '884,924 de 884,924 ACTAS' : '22,017,030 de 22,017,030 ACTAS',
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
-              textAlign: TextAlign.right,
-            ),
-          ]),
-        ),
-        const SizedBox(height: 16),
-
-        // Resumen de participación
-        const Text('RESUMEN DE PARTICIPACIÓN',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.5)),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
-          ),
-          child: Column(children: [
-            _DonutChart(porcentaje: esExtranjero ? 44.0 : 81.5),
-            const SizedBox(height: 20),
-            Row(children: [
-              Expanded(child: _miniStat('• ASISTENTES',
-                  esExtranjero ? '389,529' : '17.9M',
-                  esExtranjero ? '44.018%' : '81.543%',
-                  Colors.green)),
-              Expanded(child: _miniStat('AUSENTISMO',
-                  esExtranjero ? '495,395' : '4.06M',
-                  esExtranjero ? '56.982%' : '18.457%',
-                  Colors.grey)),
-            ]),
-          ]),
-        ),
-        const SizedBox(height: 16),
-
-        // Población electoral
-        Container(
+        return ListView(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(12)),
-          child: Stack(children: [
-            Positioned(right: 0, bottom: 0,
-              child: Icon(Icons.person_outline, size: 70, color: Colors.white.withAlpha(20))),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('POBLACIÓN ELECTORAL',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
-              const SizedBox(height: 6),
-              Text(
-                esExtranjero ? '884,924' : '22,017,030',
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
-              ),
-              const Text('Total de Electores Hábiles',
-                  style: TextStyle(fontSize: 11, color: Colors.grey)),
+          children: [
+            // Botones de selección
+            Row(children: [
+              Expanded(child: _AccesoBtn(
+                label: 'Voto Extranjero',
+                icon: Icons.public,
+                active: esExtranjero,
+                onTap: () => onSelect('extranjero'),
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _AccesoBtn(
+                label: 'Voto Nacional',
+                icon: Icons.account_balance,
+                active: !esExtranjero,
+                onTap: () => onSelect('nacional'),
+              )),
             ]),
-          ]),
-        ),
-        const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-        // Lista por continente o departamento
-        esExtranjero ? _ListaContinentes() : _ListaDepartamentos(),
-        const SizedBox(height: 12),
-      ],
+            // Última actualización
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFDE7),
+                border: Border.all(color: AppColors.goldLight),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(children: [
+                const Icon(Icons.table_chart_outlined, color: AppColors.gold, size: 20),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                  Text('ULTIMA ACTUALIZACIÓN',
+                      style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.grey, letterSpacing: 1)),
+                  Text('Actas Contabilizadas',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.navyDark)),
+                  Text('20 de Junio de 2016 - 19:16 hrs',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ])),
+              ]),
+            ),
+            const SizedBox(height: 10),
+
+            // Porcentaje actas
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('100.000%',
+                    style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: AppColors.navyDark)),
+                Text(
+                  '${s.totalActas} de ${s.totalActas} ACTAS',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  textAlign: TextAlign.right,
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // Resumen de participación
+            const Text('RESUMEN DE PARTICIPACIÓN',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.5)),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8)],
+              ),
+              child: Column(children: [
+                _DonutChart(porcentaje: pct),
+                const SizedBox(height: 20),
+                Row(children: [
+                  Expanded(child: _miniStat('ASISTENTES',
+                      s.participantes, s.porcentajeFinal, Colors.green)),
+                  Expanded(child: _miniStat('AUSENTISMO',
+                      _fmt(ausentes), '${pctAus.toStringAsFixed(3)}%', Colors.grey)),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // Población electoral
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(12)),
+              child: Stack(children: [
+                Positioned(right: 0, bottom: 0,
+                  child: Icon(Icons.person_outline, size: 70, color: Colors.white.withAlpha(20))),
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('POBLACIÓN ELECTORAL',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
+                  const SizedBox(height: 6),
+                  Text(
+                    s.electoresHabiles,
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
+                  ),
+                  const Text('Total de Electores Hábiles',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 16),
+
+            // Lista por continente o departamento
+            esExtranjero ? _ListaContinentes() : _ListaDepartamentos(),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
     );
   }
 

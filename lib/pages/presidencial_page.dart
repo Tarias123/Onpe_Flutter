@@ -126,44 +126,51 @@ class _ResumenGeneralState extends State<_ResumenGeneral> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = _esExtranjero ? statsExtranjero : statsPeru;
     final ambito = _esExtranjero ? 'extranjero' : 'peru';
+    final mockStats = _esExtranjero ? statsExtranjero : statsPeru;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Toggle Perú / Extranjero
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6)],
-          ),
-          padding: const EdgeInsets.all(4),
-          child: Row(children: [
-            _toggleBtn('PERÚ', !_esExtranjero, () => setState(() => _esExtranjero = false)),
-            _toggleBtn('EXTRANJERO', _esExtranjero, () => setState(() => _esExtranjero = true)),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        _CardEstado(stats: stats),
-        const SizedBox(height: 12),
-        _CardParticipacion(stats: stats),
-        const SizedBox(height: 12),
-        // Desglose candidaturas desde Firestore
-        StreamBuilder<List<Candidato>>(
-          stream: FirestoreService.candidatos(ambito),
-          builder: (context, snapshot) {
-            final lista = snapshot.hasData && snapshot.data!.isNotEmpty
-                ? snapshot.data!
-                : (_esExtranjero ? candidatosExtranjero : candidatosPeru);
-            return _CardDesglose(candidatos: lista, stats: stats);
-          },
-        ),
-        const SizedBox(height: 12),
-        _CardProgreso(stats: stats),
-        const SizedBox(height: 12),
-      ],
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats(ambito),
+      builder: (context, statsSnap) {
+        final stats = statsSnap.data ?? mockStats;
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Toggle Perú / Extranjero
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6)],
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Row(children: [
+                _toggleBtn('PERÚ', !_esExtranjero, () => setState(() => _esExtranjero = false)),
+                _toggleBtn('EXTRANJERO', _esExtranjero, () => setState(() => _esExtranjero = true)),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            _CardEstado(stats: stats),
+            const SizedBox(height: 12),
+            _CardParticipacion(stats: stats),
+            const SizedBox(height: 12),
+            // Desglose candidaturas desde Firestore
+            StreamBuilder<List<Candidato>>(
+              stream: FirestoreService.candidatos(ambito),
+              builder: (context, snapshot) {
+                final lista = snapshot.hasData && snapshot.data!.isNotEmpty
+                    ? snapshot.data!
+                    : (_esExtranjero ? candidatosExtranjero : candidatosPeru);
+                return _CardDesglose(candidatos: lista, stats: stats);
+              },
+            ),
+            const SizedBox(height: 12),
+            _CardProgreso(stats: stats),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
     );
   }
 
@@ -459,34 +466,42 @@ class _FullTableSheetState extends State<_FullTableSheet> {
                     },
                   ),
                   const SizedBox(height: 24),
-                  // Tabla resumen votos
-                  _seccionTitulo('RESUMEN DE VOTOS'),
-                  const SizedBox(height: 10),
-                  _resumenCard([
-                    ('Total Electores Hábiles', statsPeru.electoresHabiles, null),
-                    ('Ciudadanos que Votaron', statsPeru.participantes, statsPeru.porcentajeFinal),
-                    ('Ausentismo', '4,559,058', statsPeru.ausentismo),
-                  ]),
-                  const SizedBox(height: 16),
-                  _seccionTitulo('TIPO DE VOTO'),
-                  const SizedBox(height: 10),
-                  _resumenCard([
-                    ('Votos Válidos', statsPeru.votosValidos, '${statsPeru.pctValidos}%'),
-                    ('Votos Blancos', statsPeru.votosBlancos, '${statsPeru.pctBlancos}%'),
-                    ('Votos Nulos', statsPeru.votosNulos, '${statsPeru.pctNulos}%'),
-                    ('Total Emitidos', statsPeru.totalEmitidos, '100.000%'),
-                  ]),
-                  const SizedBox(height: 24),
-                  // Tabla actas
-                  _seccionTitulo('ESTADO DE ACTAS'),
-                  const SizedBox(height: 10),
-                  _resumenCard([
-                    ('Total Actas', statsPeru.totalActas, '100.000%'),
-                    ('Actas Procesadas', statsPeru.procesadas, '100.000%'),
-                    ('Actas Contabilizadas', statsPeru.contabilizadas, '100.000%'),
-                    ('Para envío al JEE', '0', '0.000%'),
-                    ('Por procesar', '0', '0.000%'),
-                  ]),
+                  // Resumen votos y actas desde Firestore
+                  StreamBuilder<RegionalStats?>(
+                    stream: FirestoreService.stats('peru'),
+                    builder: (context, sSnap) {
+                      final s = sSnap.data ?? statsPeru;
+                      return Column(children: [
+                        _seccionTitulo('RESUMEN DE VOTOS'),
+                        const SizedBox(height: 10),
+                        _resumenCard([
+                          ('Total Electores Hábiles', s.electoresHabiles, null),
+                          ('Ciudadanos que Votaron', s.participantes, s.porcentajeFinal),
+                          ('Ausentismo', s.totalEmitidos == s.participantes
+                              ? '4,559,058' : '—', s.ausentismo),
+                        ]),
+                        const SizedBox(height: 16),
+                        _seccionTitulo('TIPO DE VOTO'),
+                        const SizedBox(height: 10),
+                        _resumenCard([
+                          ('Votos Válidos',  s.votosValidos,  '${s.pctValidos.toStringAsFixed(3)}%'),
+                          ('Votos Blancos',  s.votosBlancos,  '${s.pctBlancos.toStringAsFixed(3)}%'),
+                          ('Votos Nulos',    s.votosNulos,    '${s.pctNulos.toStringAsFixed(3)}%'),
+                          ('Total Emitidos', s.totalEmitidos, '100.000%'),
+                        ]),
+                        const SizedBox(height: 24),
+                        _seccionTitulo('ESTADO DE ACTAS'),
+                        const SizedBox(height: 10),
+                        _resumenCard([
+                          ('Total Actas',         s.totalActas,     '100.000%'),
+                          ('Actas Procesadas',    s.procesadas,     '100.000%'),
+                          ('Actas Contabilizadas',s.contabilizadas, '100.000%'),
+                          ('Para envío al JEE',   '0',              '0.000%'),
+                          ('Por procesar',        '0',              '0.000%'),
+                        ]),
+                      ]);
+                    },
+                  ),
                   const SizedBox(height: 16),
                   const Text('Fuente: ONPE – web.onpe.gob.pe | Actualizado: 20/06/2016 a las 19:16 h',
                       textAlign: TextAlign.center,
@@ -644,100 +659,106 @@ class _ResultadosPresidencialesState extends State<_ResultadosPresidenciales> {
 
   @override
   Widget build(BuildContext context) {
-    final stats = _peru ? statsPeru : statsExtranjero;
     final ambito = _peru ? 'peru' : 'extranjero';
+    final mockStats = _peru ? statsPeru : statsExtranjero;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('ACTUALIZADO EL 20/06/2016 A LAS 19:16 H',
-            style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-        const SizedBox(height: 12),
-        _Toggle(value: _peru, onChanged: (v) => setState(() => _peru = v)),
-        const SizedBox(height: 12),
-        // Candidatos desde Firestore
-        StreamBuilder<List<Candidato>>(
-          stream: FirestoreService.candidatos(ambito),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.gold));
-            }
-            if (snapshot.hasError) {
-              return Container(
-                padding: const EdgeInsets.all(12),
-                color: Colors.red[100],
-                child: Text('Error: ${snapshot.error}', style: const TextStyle(fontSize: 11, color: Colors.red)),
-              );
-            }
-            if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              final lista = _peru ? candidatosPeru : candidatosExtranjero;
-              return Column(children: _buildCandidatos(lista));
-            }
-            return Column(children: _buildCandidatos(snapshot.data!));
-          },
-        ),
-        // Avance escrutinio
-        Container(
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats(ambito),
+      builder: (context, statsSnap) {
+        final stats = statsSnap.data ?? mockStats;
+
+        return ListView(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('AVANCE DE ESCRUTINIO',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
-              const SizedBox(height: 12),
-              Row(children: [
-                _escrutinioItem('TOTAL ACTAS', stats.totalActas, '100%'),
-                _escrutinioItem('PROCESADAS', stats.procesadas, '100%'),
-                _escrutinioItem('CONTABILIZADAS', stats.contabilizadas, '100%'),
-              ]),
-              const Divider(color: Color(0xFF2D4070), height: 24),
-              const Text('PARTICIPACIÓN CIUDADANA',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1)),
-              const SizedBox(height: 10),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('ELECTORES HÁBILES', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                  Text(stats.electoresHabiles, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
-                ]),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  const Text('PARTICIPANTES', style: TextStyle(fontSize: 9, color: Colors.grey)),
-                  Text(stats.participantes, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
-                ]),
-              ]),
-              const SizedBox(height: 12),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                const Text('PORCENTAJE FINAL', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                Text(stats.porcentajeFinal,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.gold)),
-              ]),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Grid votos
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 1.5,
           children: [
-            _VotoCard('Votos Válidos', stats.votosValidos, '${stats.pctValidos.toStringAsFixed(3)}% del total', true),
-            _VotoCard('Votos Blancos', stats.votosBlancos, '${stats.pctBlancos.toStringAsFixed(3)}% del total', false),
-            _VotoCard('Votos Nulos', stats.votosNulos, '${stats.pctNulos.toStringAsFixed(3)}% del total', false),
-            _VotoCard('Total Emitidos', stats.totalEmitidos, '${stats.porcentajeFinal} part.', false),
+            const Text('ACTUALIZADO EL 20/06/2016 A LAS 19:16 H',
+                style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+            const SizedBox(height: 12),
+            _Toggle(value: _peru, onChanged: (v) => setState(() => _peru = v)),
+            const SizedBox(height: 12),
+            // Candidatos desde Firestore
+            StreamBuilder<List<Candidato>>(
+              stream: FirestoreService.candidatos(ambito),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator(color: AppColors.gold));
+                }
+                if (snapshot.hasError) {
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    color: Colors.red[100],
+                    child: Text('Error: ${snapshot.error}', style: const TextStyle(fontSize: 11, color: Colors.red)),
+                  );
+                }
+                final lista = (snapshot.hasData && snapshot.data!.isNotEmpty)
+                    ? snapshot.data!
+                    : (_peru ? candidatosPeru : candidatosExtranjero);
+                return Column(children: _buildCandidatos(lista));
+              },
+            ),
+            // Avance escrutinio
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.navyDark, borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AVANCE DE ESCRUTINIO',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.2)),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    _escrutinioItem('TOTAL ACTAS', stats.totalActas, '100%'),
+                    _escrutinioItem('PROCESADAS', stats.procesadas, '100%'),
+                    _escrutinioItem('CONTABILIZADAS', stats.contabilizadas, '100%'),
+                  ]),
+                  const Divider(color: Color(0xFF2D4070), height: 24),
+                  const Text('PARTICIPACIÓN CIUDADANA',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1)),
+                  const SizedBox(height: 10),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('ELECTORES HÁBILES', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                      Text(stats.electoresHabiles, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                    ]),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      const Text('PARTICIPANTES', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                      Text(stats.participantes, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    const Text('PORCENTAJE FINAL', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    Text(stats.porcentajeFinal,
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.gold)),
+                  ]),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Grid votos
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 1.5,
+              children: [
+                _VotoCard('Votos Válidos',  stats.votosValidos,  '${stats.pctValidos.toStringAsFixed(3)}% del total', true),
+                _VotoCard('Votos Blancos',  stats.votosBlancos,  '${stats.pctBlancos.toStringAsFixed(3)}% del total', false),
+                _VotoCard('Votos Nulos',    stats.votosNulos,    '${stats.pctNulos.toStringAsFixed(3)}% del total', false),
+                _VotoCard('Total Emitidos', stats.totalEmitidos, '${stats.porcentajeFinal} part.', false),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Resultados por departamento / continente
+            _ResultadosPorZona(peru: _peru),
+            const SizedBox(height: 12),
+            // Glosario
+            _GlosarioCard(open: _glosario, onTap: () => setState(() => _glosario = !_glosario)),
+            const SizedBox(height: 12),
           ],
-        ),
-        const SizedBox(height: 12),
-        // Resultados por departamento / continente
-        _ResultadosPorZona(peru: _peru),
-        const SizedBox(height: 12),
-        // Glosario
-        _GlosarioCard(open: _glosario, onTap: () => setState(() => _glosario = !_glosario)),
-        const SizedBox(height: 12),
-      ],
+        );
+      },
     );
   }
 
@@ -944,18 +965,18 @@ class _ResultadoPorTipoState extends State<_ResultadoPorTipo> {
   String? _pais;
   String? _ciudad;
 
-  // ── Cálculo de datos proporcionales ────────────────────────────────────────
-  // Perú total oficial: Válidos 16,802,878 | Blancos 147,185 | Nulos 1,003,304 | Total 17,953,367
-  static const _peruTotalValidos = 16802878;
-  static const _peruTotalBlancos = 147185;
-  static const _peruTotalNulos = 1003304;
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  int _parseInt(String s) => int.tryParse(s.replaceAll(',', '')) ?? 0;
 
-  // Extranjero total: Válidos 362,162 | Blancos 15,820 | Nulos 11,547
-  static const _extTotalValidos = 362162;
-  static const _extTotalBlancos = 15820;
-  static const _extTotalNulos = 11547;
+  String _fmt(int n) => n.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
 
-  _VotoStats _calcStats() {
+  // ── Cálculo de datos proporcionales desde stats de Firestore ───────────────
+  _VotoStats _calcStats(RegionalStats stats) {
+    final totalValidos = _parseInt(stats.votosValidos);
+    final totalBlancos = _parseInt(stats.votosBlancos);
+    final totalNulos   = _parseInt(stats.votosNulos);
+
     if (_peru) {
       double peso = 1.0;
       if (_departamento != null) {
@@ -963,11 +984,10 @@ class _ResultadoPorTipoState extends State<_ResultadoPorTipo> {
         if (_provincia != null) peso *= 0.25;
         if (_distrito != null) peso *= 0.20;
       }
-      final v = (_peruTotalValidos * peso).round();
-      final b = (_peruTotalBlancos * peso).round();
-      final n = (_peruTotalNulos * peso).round();
-      final t = v + b + n;
-      return _VotoStats(v, b, n, t);
+      final v = (totalValidos * peso).round();
+      final b = (totalBlancos * peso).round();
+      final n = (totalNulos   * peso).round();
+      return _VotoStats(v, b, n, v + b + n);
     } else {
       final totalElectores = electoresContinente.values.fold(0, (a, b) => a + b);
       double peso = 1.0;
@@ -983,23 +1003,26 @@ class _ResultadoPorTipoState extends State<_ResultadoPorTipo> {
           peso *= 1 / ciudades.length;
         }
       }
-      final v = (_extTotalValidos * peso).round();
-      final b = (_extTotalBlancos * peso).round();
-      final n = (_extTotalNulos * peso).round();
-      final t = v + b + n;
-      return _VotoStats(v, b, n, t);
+      final v = (totalValidos * peso).round();
+      final b = (totalBlancos * peso).round();
+      final n = (totalNulos   * peso).round();
+      return _VotoStats(v, b, n, v + b + n);
     }
   }
 
-  String _fmt(int n) => n.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]},');
-
   @override
   Widget build(BuildContext context) {
-    final data = _calcStats();
-    final pctV = data.total > 0 ? (data.validos / data.total * 100) : 0.0;
-    final pctB = data.total > 0 ? (data.blancos / data.total * 100) : 0.0;
-    final pctN = data.total > 0 ? (data.nulos / data.total * 100) : 0.0;
+    final ambito    = _peru ? 'peru' : 'extranjero';
+    final mockStats = _peru ? statsPeru : statsExtranjero;
+
+    return StreamBuilder<RegionalStats?>(
+      stream: FirestoreService.stats(ambito),
+      builder: (context, statsSnap) {
+        final liveStats = statsSnap.data ?? mockStats;
+        final data = _calcStats(liveStats);
+        final pctV = data.total > 0 ? (data.validos / data.total * 100) : 0.0;
+        final pctB = data.total > 0 ? (data.blancos / data.total * 100) : 0.0;
+        final pctN = data.total > 0 ? (data.nulos   / data.total * 100) : 0.0;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1152,7 +1175,9 @@ class _ResultadoPorTipoState extends State<_ResultadoPorTipo> {
         _GlosarioCard(open: _glosario, onTap: () => setState(() => _glosario = !_glosario)),
         const SizedBox(height: 12),
       ],
-    );
+        );       // cierra ListView
+      },
+    );           // cierra StreamBuilder
   }
 
   String _locationLabel() {

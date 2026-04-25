@@ -4,7 +4,7 @@ import 'mock_data.dart';
 class FirestoreService {
   static final _db = FirebaseFirestore.instance;
 
-  // Obtener candidatos por ámbito (peru / extranjero)
+  // ── Candidatos por ámbito (peru / extranjero) ────────────────────────────
   static Stream<List<Candidato>> candidatos(String ambito) {
     return _db
         .collection('candidatos')
@@ -22,11 +22,35 @@ class FirestoreService {
           porcentaje: (d['porcentaje'] as num).toDouble(),
           porcentajeEmitidos: (d['porcentajeEmitidos'] as num).toDouble(),
           votos: (d['votos'] as num).toInt(),
-          foto: doc.id == 'ppk'
+          foto: doc.id.startsWith('ppk')
               ? 'assets/images/ppk.png'
               : 'assets/images/keiko.png',
         );
       }).toList();
+    });
+  }
+
+  // ── Estadísticas por ámbito (peru / extranjero) ──────────────────────────
+  static Stream<RegionalStats?> stats(String ambito) {
+    return _db.collection('stats').doc(ambito).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      final d = doc.data()!;
+      return RegionalStats(
+        totalActas:      d['totalActas']      ?? '0',
+        procesadas:      d['procesadas']      ?? '0',
+        contabilizadas:  d['contabilizadas']  ?? '0',
+        electoresHabiles: d['electoresHabiles'] ?? '0',
+        participantes:   d['participantes']   ?? '0',
+        porcentajeFinal: d['porcentajeFinal'] ?? '0%',
+        ausentismo:      d['ausentismo']      ?? '0%',
+        votosValidos:    d['votosValidos']    ?? '0',
+        pctValidos:      (d['pctValidos']  as num).toDouble(),
+        votosBlancos:    d['votosBlancos']    ?? '0',
+        pctBlancos:      (d['pctBlancos']  as num).toDouble(),
+        votosNulos:      d['votosNulos']      ?? '0',
+        pctNulos:        (d['pctNulos']    as num).toDouble(),
+        totalEmitidos:   d['totalEmitidos']   ?? '0',
+      );
     });
   }
 }
